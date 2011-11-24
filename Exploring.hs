@@ -5,8 +5,6 @@ module Exploring
   , getExploreOrder
   ) where
 
--- Just import this file into Ants.hs
-
 {-
 This should replace the GameState data type in Ants.hs
 I wonder if we should also put orders :: [Order] in it.

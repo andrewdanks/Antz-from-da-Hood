@@ -78,7 +78,7 @@ antAtLocation p = head . filter (\a -> point a == p) myAnts
 -- so we don't assign the same Ant more than one order. My function filters Ants
 -- who already have orderes assigned to them.
 getExploreOrder :: GameParams -> GameState -> Order
-doExplore gp gs = 
+getExploreOrder gp gs = 
   let ants = filter (\a -> a `notElem` orders gs) myAnts
       unseen_dist = sort [(distance gp loc1 (point ant), loc1) | loc1 <- gs unseen, ant <- ants]
   in snd . head . dropWhile (\(w, o) -> passable w o)

@@ -38,5 +38,3 @@ doTurn gp gs = do
 -- | This runs the game
 main :: IO ()
 main = game doTurn
-
--- vim: set expandtab:

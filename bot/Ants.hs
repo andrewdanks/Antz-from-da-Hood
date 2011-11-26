@@ -49,8 +49,6 @@ import System.IO
 
 import Util
 
-import Exploring
-
 timeRemaining :: GameState -> IO NominalDiffTime
 timeRemaining gs = do
   timeNow <- getCurrentTime
@@ -454,3 +452,4 @@ finishTurn = do
   putStrLn "go" 
   hFlush stdout
 
+-- vim: set expandtab:

@@ -10,6 +10,39 @@ import Debug.Trace
 
 import Ants
 
+-------------------------------------------------------------------------------
+-- Exploring functionality ----------------------------------------------------
+-------------------------------------------------------------------------------
+
+-- Calculate the set of points in the radius of an ant, i.e. the points that an
+-- ant can see
+-- distanceAnt :: Ant -> GameState -> GameParams -> [Point]
+-- distanceAnt ant gs gp = 
+--  [p | p <- (indices . world gs), (distance gp p (pointAnt ant)) <= (viewradius2 gp)]
+  
+-- Given a point and the world, return whether the point is unseen
+unseen :: World -> Point -> Bool
+unseen w pt = not (seen (w %! pt))
+
+-- Return a list of points that are not yet seen
+filterUnseen :: GameState -> GameParams -> [Point]
+filterUnseen gs gp =
+  let allPoints = [(x, y) | x <- [0..(rows gp)], y <- [0..(cols gp)]] 
+  in [point | point <- allPoints, unseen (world gs) point]
+  
+-- Assign each ant that does not have an order already to do some exploring
+-- Here, freeants denotes the list of ants that have not been assigned a task
+assignExplore :: GameState -> GameParams -> [Ant] -> [(Ant, Point)]
+assignExplore gs gp freeants = 
+    let unseenPts = filterUnseen gs gp
+        orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- freeants, p <- unseenPts]
+    in createDictHelper orders []
+        
+  
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
 returnOrder :: GameParams -> (Ant, Point) -> Order
 returnOrder gp antpoint 
     | (getDirections gp (pointAnt (fst antpoint)) (snd antpoint)) == [] = Order{ant = fst antpoint, direction = North} 
@@ -88,12 +121,15 @@ getDirections gp (x1,y1) (x2,y2) =
 -- | Generates orders for an Ant in all directions
 -- TODO: Test code on more difficult map to see if food is top priority
 --       Check for unblocking
-generateOrders :: GameParams -> GameState  -> [Order]
-generateOrders gp gs =  (returnOrders gp (foods ++ hilllist)) ++ extraOrders
+generateOrders :: GameParams -> GameState -> [Order]
+generateOrders gp gs =  (returnOrders gp (foods ++ hilllist++exploreList)) ++ extraOrders 
      where
         foods = createDictionary gp (myAnts (ants gs)) (food gs)
         hilllist = createDictionary gp (myAnts (ants gs)) (map pointHill $ filter isEnemy's $ hills gs)
-        extraOrders =  map (unblockHillOrder gs) (freeAnts (foods ++ hilllist) gs)
+        --Need a dictionary to filter out these points
+        exploreList = assignExplore gs gp (freeAnts (foods ++ hilllist) gs)
+        --orders that have not been given to 
+        extraOrders =  map (unblockHillOrder gs) (freeAnts (foods ++ hilllist ++ exploreList) gs)
 
 unblockHillOrder :: GameState -> Ant -> Order
 unblockHillOrder gs ant

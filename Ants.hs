@@ -83,6 +83,7 @@ data Tile = AntTile Owner
 data MetaTile = MetaTile
   { tile :: Tile
   , visible :: Bool
+  , seen :: Bool
   } deriving (Show)
 
 isAnt, isDead, isAntEnemy, isDeadEnemy :: Tile -> Bool
@@ -126,15 +127,15 @@ renderTile m
 -- | Sets the tile to visible, if the tile is still unknown then it is land.
 visibleMetaTile :: MetaTile -> MetaTile
 visibleMetaTile m
-  | tile m == Unknown = MetaTile {tile = Land, visible = True}
-  | otherwise         = MetaTile {tile = tile m, visible = True}
+  | tile m == Unknown = MetaTile {tile = Land, visible = True, seen = seen m}
+  | otherwise         = MetaTile {tile = tile m, visible = True, seen = seen m}
 
 -- | Resets tile to land if it is currently occupied by food or ant
 --   and makes the tile invisible.
 clearMetaTile :: MetaTile -> MetaTile
 clearMetaTile m
-  | fOr (tile m) [isAnt, (==FoodTile), isDead] = MetaTile {tile = Land, visible = False}
-  | otherwise = MetaTile {tile = tile m, visible = False}
+  | fOr (tile m) [isAnt, (==FoodTile), isDead] = MetaTile {tile = Land, visible = False, seen = seen m}
+  | otherwise = MetaTile {tile = tile m, visible = False, seen = seen m}
 
 --------------------------------------------------------------------------------
 -- Immutable World -------------------------------------------------------------
@@ -373,11 +374,11 @@ updateGameState vp gs s
     toPoint = tuplify2.map read.words
     writeTile w p t = runSTArray $ do
       w' <- unsafeThaw w
-      writeArray w' p MetaTile {tile = t, visible = True}
+      writeArray w' p MetaTile {tile = t, visible = True, seen = True}
       return w'
 
 initialWorld :: GameParams -> World
-initialWorld gp = listArray ((0,0), (rows gp - 1, cols gp - 1)) $ repeat MetaTile {tile = Unknown, visible = False}
+initialWorld gp = listArray ((0,0), (rows gp - 1, cols gp - 1)) $ repeat MetaTile {tile = Unknown, visible = False, seen = False}
 
 createParams :: [(String, String)] -> GameParams
 createParams s =

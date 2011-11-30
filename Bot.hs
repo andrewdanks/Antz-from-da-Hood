@@ -28,9 +28,9 @@ unseen w pt = not (seen (w %! pt))
 -- Here, freeants denotes the list of ants that have not been assigned a task
 assignExplore :: GameState -> GameParams -> [Ant] -> [(Ant, Point)]
 assignExplore gs gp freeants = 
-    let unseenPts = [point | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
+    let unseenPts = [(x, y) | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
         orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- freeants, p <- unseenPts]
-    in createDictHelper freeants unseenPts orders []
+    in createDictHelper [] [] orders []
         
   
 -------------------------------------------------------------------------------
@@ -70,15 +70,15 @@ getClosestPoint gp ant (point:points) = helpGetClosestPoint gp ant points point
 createDictHelper :: [Ant] -> [Point] -> [(Ant, Point)] -> [(Ant, Point)] -> [(Ant, Point)]
 createDictHelper ants points [] orders_acc = orders_acc
 createDictHelper ants points ((ant, point):xs) orders_acc 
-                | elem ant ants = createDictHelper xs orders_acc
-                | elem point points = createDictHelper xs orders_acc
-                | otherwise = createDictHelper xs ((ant, point) : orders_acc)
+                | elem ant ants = createDictHelper ants points xs orders_acc
+                | elem point points = createDictHelper ants points xs orders_acc
+                | otherwise = createDictHelper (ant : ants) (point : points) xs ((ant, point) : orders_acc)
 
 --Creates a Dictionary of ants and locations, with each ant mapped to its closest food source
 createDictionary :: GameParams -> [Ant] -> [Point] -> [(Ant, Point)]
 createDictionary gp ants points = 
     let orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- ants, p <- points]
-    in createDictHelper ants points orders []
+    in createDictHelper [] [] orders []
 
 --CreateDictionary gp ants [] = []
 --CreateDictionary gp ant:ants (loc:locs) | ant == [] = []

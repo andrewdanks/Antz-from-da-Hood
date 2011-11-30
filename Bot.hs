@@ -26,34 +26,37 @@ unseen w pt = not (seen (w %! pt))
 
 -- Return a list of points that are not yet seen
 filterUnseen :: GameState -> GameParams -> [Point]
-filterUnseen gs gp =
-  let allPoints = [(x, y) | x <- [0..(rows gp)], y <- [0..(cols gp)]] 
-  in [point | point <- allPoints, unseen (world gs) point]
+filterUnseen gs gp = [point | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
   
 -- Assign each ant that does not have an order already to do some exploring
 -- Here, freeants denotes the list of ants that have not been assigned a task
 assignExplore :: GameState -> GameParams -> [Ant] -> [(Ant, Point)]
 assignExplore gs gp freeants = 
-    let unseenPts = filterUnseen gs gp
+    let unseenPts = [point | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
         orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- freeants, p <- unseenPts]
-    in createDictHelper orders []
+    in createDictHelper freeants unseenPts orders []
         
   
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
-
+--directions variable solves repeated calls problem CHANGE
 returnOrder :: GameParams -> (Ant, Point) -> Order
 returnOrder gp antpoint 
-    | (getDirections gp (pointAnt (fst antpoint)) (snd antpoint)) == [] = Order{ant = fst antpoint, direction = North} 
-    | otherwise = Order{ant = fst antpoint, direction = head (getDirections gp (pointAnt (fst antpoint)) (snd antpoint))}
-
+    | directions == [] = Order{ant = fst antpoint, direction = North} 
+    | otherwise = Order{ant = fst antpoint, direction = head (directions)}
+    where
+    	directions = (getDirections gp (pointAnt (fst antpoint)) (snd antpoint))
+    	
 returnOrders :: GameParams -> [(Ant, Point)] ->[Order]
 returnOrders gp [] = []
 returnOrders gp antpoint = map (returnOrder gp) (antpoint) 
 
+--This change probably wasnt necessary CHANGE
 freeAnts :: [(Ant, Point)] -> GameState -> [Ant]
-freeAnts antpoint gs = filter (`notElem` (Map.keys (Map.fromList antpoint))) (myAnts (ants gs))
+freeAnts antpoint gs = 
+    let keys = (Map.keys (Map.fromList antpoint))
+    in filter (`notElem` keys) (myAnts (ants gs))
 
 --Helper function 
 helpGetClosestPoint :: GameParams -> Ant -> [Point] -> Point -> Point
@@ -67,18 +70,19 @@ helpGetClosestPoint gp ant points closestpoint
 getClosestPoint :: GameParams -> Ant -> [Point] -> Point
 getClosestPoint gp ant (point:points) = helpGetClosestPoint gp ant points point
 
-createDictHelper :: [(Ant, Point)] -> [(Ant, Point)] -> [(Ant, Point)]
-createDictHelper [] orders_acc = orders_acc
-createDictHelper ((ant, point):xs) orders_acc 
-                | elem ant [ants | (ants, points) <- orders_acc] = createDictHelper xs orders_acc
-                | elem point [points | (ants, points) <- orders_acc] = createDictHelper xs orders_acc
+-- Create a list of (Ant, Point) tuples, where each ant is mapped to a point
+createDictHelper :: [Ant] -> [Point] -> [(Ant, Point)] -> [(Ant, Point)] -> [(Ant, Point)]
+createDictHelper ants points [] orders_acc = orders_acc
+createDictHelper ants points ((ant, point):xs) orders_acc 
+                | elem ant ants = createDictHelper xs orders_acc
+                | elem point points = createDictHelper xs orders_acc
                 | otherwise = createDictHelper xs ((ant, point) : orders_acc)
 
 --Creates a Dictionary of ants and locations, with each ant mapped to its closest food source
 createDictionary :: GameParams -> [Ant] -> [Point] -> [(Ant, Point)]
 createDictionary gp ants points = 
     let orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- ants, p <- points]
-    in createDictHelper orders []
+    in createDictHelper ants points orders []
 
 --CreateDictionary gp ants [] = []
 --CreateDictionary gp ant:ants (loc:locs) | ant == [] = []
@@ -126,15 +130,21 @@ generateOrders gp gs =  (returnOrders gp (foods ++ hilllist++exploreList)) ++ ex
      where
         foods = createDictionary gp (myAnts (ants gs)) (food gs)
         hilllist = createDictionary gp (myAnts (ants gs)) (map pointHill $ filter isEnemy's $ hills gs)
+        --Put the hills and food into one dictionary
+        --added foodshills to reduce append calls CHANGE
+        foodshills = foods ++ hilllist
         --Need a dictionary to filter out these points
-        exploreList = assignExplore gs gp (freeAnts (foods ++ hilllist) gs)
+        exploreList = assignExplore gs gp (freeAnts (foodshills) gs)
         --orders that have not been given to 
-        extraOrders =  map (unblockHillOrder gs) (freeAnts (foods ++ hilllist ++ exploreList) gs)
+        extraOrders =  map (unblockHillOrder gs) (freeAnts (foodshills ++ exploreList) gs)
 
+--I think we're always telling the ants to go north here POTENTIAL PROBLEM
 unblockHillOrder :: GameState -> Ant -> Order
 unblockHillOrder gs ant
-    | (filter (isDestinationPassable (world gs)) (map (Order ant) [North .. West])) == [] = Order {ant = ant, direction = North}
-    | otherwise = head (filter (isDestinationPassable (world gs)) (map (Order ant) [North .. West]))
+    | (filter (isDestinationPassable (world gs)) (orders)) == [] = Order {ant = ant, direction = North}
+    | otherwise = head (filter (isDestinationPassable (world gs)) (orders))
+    where orders = map (Order ant) [North .. West]
+
                                             
 -- | Avoid Collitions
 -- Whe get the set of destinations and generating Order

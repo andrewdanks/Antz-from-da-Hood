@@ -23,10 +23,6 @@ import Ants
 -- Given a point and the world, return whether the point is unseen
 unseen :: World -> Point -> Bool
 unseen w pt = not (seen (w %! pt))
-
--- Return a list of points that are not yet seen
-filterUnseen :: GameState -> GameParams -> [Point]
-filterUnseen gs gp = [point | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
   
 -- Assign each ant that does not have an order already to do some exploring
 -- Here, freeants denotes the list of ants that have not been assigned a task

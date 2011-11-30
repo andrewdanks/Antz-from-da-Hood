@@ -16,6 +16,7 @@ nextBestOrder ant dest =
 -- nextBestPoint :: Point -> Point -> Point 
 -- nextBestPoint start dest = (point head.pathfind PointCount {point = start, counter = 0} [PointCount {point = dest, counter = 0}])
 
+-- Similar to isDestinationPassable in Bot.hs, but takes Point as parameter instead of Order
 isDestinationPassable' :: World -> Point -> Bool
 isDestinationPassable' w pnt = pos `elem` [Land, Unknown] || isDead pos || isEnemyHill pos
     where
@@ -30,7 +31,7 @@ pathfind :: World -> PointCount -> [PointCount] -> PointCount
 pathfind w start []    = start
 pathfind w start queue = 
 	let
-		-- Adjacent points
+		-- Adjacent points. TODO: need to mod points with size of map?
 		xPlus1		 = sumPoint start (0, 1)
 		xMinus1		 = sumPoint start (0, -1)
 		yPlus1		 = sumPoint start (1, 0)
@@ -41,9 +42,9 @@ pathfind w start queue =
 		-- Nearby points that can be moved to (not obstacles)
 		moveablePnts 			 = filter (\pc -> isDestinationPassable' w (point pc)) nearbyPnts
 		-- If there is an element in the queue with the same coordinate and an equal or lower counter, remove it from the list
-		moveablePntsnotInQueue	 = filter (\pc -> not.inQueueAndLTECount pc queue) moveablePnts
+		moveablePntsNotInQueue	 = filter (\pc -> not.inQueueAndLTECount pc queue) moveablePnts
 	in
-		pathfind w (head queue) ((tail queue) ++ moveablePntsnotInQueue)
+		pathfind w (head queue) ((tail queue) ++ moveablePntsNotInQueue)
 		
 {-
 ALGORITHM:

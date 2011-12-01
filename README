@@ -10,6 +10,8 @@ To compile, simply run from the command line
 You may check for updates from the following repository.
 https://github.com/qacek/ants-haskell
 
+ghc --make -o MyBot.hs
+
 Invoke ghc with optimizations turned on with the -O flag. This eliminates
 unnecessary copying of arrays, see unsafeFreeze and unsafeThaw at
 http://hackage.haskell.org/packages/archive/array/latest/doc/html/Data-Array-MArray.html#7

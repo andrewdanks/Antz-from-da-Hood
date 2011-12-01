@@ -9,6 +9,7 @@ import Data.Function
 import Debug.Trace
 
 import Ants
+import Pathfinding
 
 -------------------------------------------------------------------------------
 -- Exploring functionality ----------------------------------------------------
@@ -73,16 +74,19 @@ assignExplore gs gp (ant:freeants) =
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 --directions variable solves repeated calls problem CHANGE
-returnOrder :: GameParams -> (Ant, Point) -> Order
-returnOrder gp antpoint 
+returnOrder :: World -> GameParams -> (Ant, Point) -> Order
+returnOrder w gp antpoint 
     | directions == [] = Order{ant = fst antpoint, direction = North} 
     | otherwise = Order{ant = fst antpoint, direction = head (directions)}
     where
-    	directions = (getDirections gp (pointAnt (fst antpoint)) (snd antpoint))
+        --Compute the next point you should go to
+        nextPoint = getNextMove gp w (pointAnt (fst antpoint)) (snd antpoint)
+        --Get the direction to that point
+    	directions = (getDirections gp (pointAnt (fst antpoint)) nextPoint)
     	
-returnOrders :: GameParams -> [(Ant, Point)] ->[Order]
-returnOrders gp [] = []
-returnOrders gp antpoint = map (returnOrder gp) (antpoint) 
+returnOrders :: World -> GameParams -> [(Ant, Point)] ->[Order]
+returnOrders w gp [] = []
+returnOrders w gp antpoint = map (returnOrder w gp) (antpoint) 
 
 --This change probably wasnt necessary CHANGE
 freeAnts :: [(Ant, Point)] -> GameState -> [Ant]

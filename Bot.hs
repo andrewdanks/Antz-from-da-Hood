@@ -23,14 +23,50 @@ import Ants
 -- Given a point and the world, return whether the point is unseen
 unseen :: World -> Point -> Bool
 unseen w pt = not (seen (w %! pt))
-  
+
+-- Given the game parameters and an ant, return the points within the radius of
+-- the ant.
+getRadiusPoints :: GameState -> GameParams-> Ant -> [Point]
+getRadiusPoints gs gp ant
+    | minX >= 0 && maxX <= (cols gp) && maxY <= (rows gp) && minY >= 0 = list1
+    | minX < 0 && maxX <= (cols gp) && maxY <= (rows gp) && minY >= 0 = list2
+    | minX >= 0 && maxX > (cols gp) && maxY <= (rows gp) && minY >= 0 = list3
+    | minX >= 0 && maxX <= (cols gp) && maxY > (rows gp) && minY >= 0 = list4
+    | minX >= 0 && maxX <= (cols gp) && maxY <= (rows gp) && minY < 0 = list5
+    | minX < 0 && maxX <= (cols gp) && maxY > (rows gp) && minY >= 0 = list6
+    | minX < 0 && maxX <= (cols gp) && maxY <= (rows gp) && minY < 0 = list7
+    | minX >= 0 && maxX > (cols gp) && maxY > (rows gp) && minY >= 0 = list8
+    | minX >= 0 && maxX > (cols gp) && maxY <= (rows gp) && minY < 0 = list9
+    where   
+        maxX = (fst $ pointAnt ant) + (floor $ sqrt (fromIntegral $ viewradius2 gp)) + 1
+        minX = (fst $ pointAnt ant) - (floor $ sqrt (fromIntegral $ viewradius2 gp)) - 1
+        maxY = (snd $ pointAnt ant) + (floor $ sqrt (fromIntegral $ viewradius2 gp)) + 1
+        minY = (snd $ pointAnt ant) - (floor $ sqrt (fromIntegral $ viewradius2 gp)) - 1
+        list1 = [(x, y) | x <- [minX..maxX], y <- [minY..maxY]]
+        list2 = [(x, y) | x <- [0..maxX]++[((cols gp) + minX)..(cols gp)], y <- [minY..maxY]]
+        list3 = [(x, y) | x <- [minX..(cols gp)]++[0..(maxX `mod` (cols gp))], y <- [minY..maxY]]
+        list4 = [(x, y) | x <- [minX..maxX], y <- [minY..(rows gp)]++[0..(maxY `mod` (rows gp))]]
+        list5 = [(x, y) | x <- [minX..maxX], y <- [0..maxY]++[((rows gp)+minY)..(rows gp)]]
+        list6 = [(x, y) | x <- [0..maxX]++[((cols gp) + minX)..(cols gp)], y <- [minY..(rows gp)]++[0..(maxY `mod` (rows gp))]]
+        list7 = [(x, y) | x <- [0..maxX]++[((cols gp) + minX)..(cols gp)], y <- [0..maxY]++[((rows gp)+minY)..(rows gp)]]
+        list8 = [(x, y) | x <- [minX..(cols gp)]++[0..(maxX `mod` (cols gp))], y <- [minY..(rows gp)]++[0..(maxY `mod` (rows gp))]]
+        list9 = [(x, y) | x <- [minX..(cols gp)]++[0..(maxX `mod` (cols gp))], y <- [0..maxY]++[((rows gp)+minY)..(rows gp)]]
+
 -- Assign each ant that does not have an order already to do some exploring
 -- Here, freeants denotes the list of ants that have not been assigned a task
 assignExplore :: GameState -> GameParams -> [Ant] -> [(Ant, Point)]
-assignExplore gs gp freeants = 
-    let unseenPts = [(x, y) | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
-        orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- freeants, p <- unseenPts]
-    in createDictHelper [] [] orders []
+assignExplore gs gp [] = []
+assignExplore gs gp (ant:freeants) = 
+    -- First finding the range of points that are within view of the ants.
+    let unseenPts = [pts | pts <- (getRadiusPoints gs gp ant), unseen (world gs) pts]
+        destinations = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt ant) p, p) | p <- unseenPts]
+        order = if destinations == [] then [] else [(ant, head destinations)]
+    in  order ++ (assignExplore gs gp freeants)
+--assignExplore :: GameState -> GameParams -> [Ant] -> [(Ant, Point)]
+--assignExplore gs gp freeants = 
+--    let unseenPts = [(x, y) | x <- [0..(rows gp)], y <- [0..(cols gp)], unseen (world gs) (x, y)]
+--        orders = map snd $ sortBy (compare `on` fst) [(distance gp (pointAnt a) p,(a,p)) | a <- freeants, p <- unseenPts]
+--    in createDictHelper [] [] orders []
         
   
 -------------------------------------------------------------------------------
@@ -118,11 +154,17 @@ getDirections gp (x1,y1) (x2,y2) =
         halfRows = rows gp `div` 2
         halfCols = cols gp `div` 2
 
+-- For the remaining ants, assignmen them a point to go to
+matchRemaining :: [Ant] -> [Point] -> [(Ant, Point)]
+matchRemaining ants points = 
+    let orders = [(ant, point) | point <- points, ant <- ants]
+    in  createDictHelper [] [] orders []
+
 -- | Generates orders for an Ant in all directions
 -- TODO: Test code on more difficult map to see if food is top priority
 --       Check for unblocking
 generateOrders :: GameParams -> GameState -> [Order]
-generateOrders gp gs =  (returnOrders gp (foods ++ hilllist++exploreList)) ++ extraOrders 
+generateOrders gp gs =  (returnOrders gp (foods ++ hilllist++assignList)) ++ extraOrders 
      where
         foods = createDictionary gp (myAnts (ants gs)) (food gs)
         hilllist = createDictionary gp (myAnts (ants gs)) (map pointHill $ filter isEnemy's $ hills gs)
@@ -130,9 +172,10 @@ generateOrders gp gs =  (returnOrders gp (foods ++ hilllist++exploreList)) ++ ex
         --added foodshills to reduce append calls CHANGE
         foodshills = foods ++ hilllist
         --Need a dictionary to filter out these points
-        exploreList = assignExplore gs gp (freeAnts (foodshills) gs)
+        --extraList = matchRemaining (freeAnts foodshills gs) (map snd foodshills)
+        assignList = assignExplore gs gp (freeAnts foodshills gs)
         --orders that have not been given to 
-        extraOrders =  map (unblockHillOrder gs) (freeAnts (foodshills ++ exploreList) gs)
+        extraOrders =  map (unblockHillOrder gs) (freeAnts (foodshills ++ assignList) gs)
 
 --I think we're always telling the ants to go north here POTENTIAL PROBLEM
 unblockHillOrder :: GameState -> Ant -> Order

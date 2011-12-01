@@ -66,12 +66,12 @@ getNextMove gp w start dest = nextPoint gp start (reverse path)
 getPathHelper :: GameParams -> World -> [(Point, Int)] -> Point -> [(Point, Int)]
 getPathHelper gp w queue dest  
     --If you're at dest, stop
-    | fst start == dest = [start]
-    | counter >= 15 = [start]
+    | (dest, counter) `elem` queue = takeWhile (\pc -> fst pc /= dest) queue ++ [(dest,counter)]
+    | counter >= 15 = queue
     --Otherwise, 
-    | otherwise = [start] ++ getPathHelper gp w (tail newQueue) dest
-    where start = head queue
-          counter = snd start
+    | otherwise = getPathHelper gp w newQueue dest
+    where counter = snd $ last queue
+          start = last $ take (counter + 1) queue  --start = head queue
           -- Nearby points that can be moved to (not obstacles)
           adjPnts = getAdjacentPassablePoints gp w start 
           -- If there is an element in the queue with the same coordinate and an equal or lower  counter, remove it from the list

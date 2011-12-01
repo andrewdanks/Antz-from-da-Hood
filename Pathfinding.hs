@@ -1,8 +1,5 @@
 
-data PointCount = PointCount
-  { point :: Point
-  , counter :: Int
-  } deriving (Show)
+
 
  
 {-
@@ -24,11 +21,11 @@ isDestinationPassable' w pnt = pos `elem` [Land, Unknown] || isDead pos || isEne
         isEnemyHill (HillTile owner) = owner /= Me
         isEnemyHill _ = False
 
+{-
 inQueueAndLTECount :: PointCount -> [PointCount] -> Bool
 inQueueAndLTECount pc queue = length [pc' | pc' <- queue, (point pc') == (point pc), (counter pc') <= (counter pc)] > 0
 
 pathfind :: World -> PointCount -> [PointCount] -> PointCount
-pathfind w start []    = start
 pathfind w start queue = 
 	let
 		-- Adjacent points. TODO: need to mod points with size of map?
@@ -45,6 +42,45 @@ pathfind w start queue =
 		moveablePntsNotInQueue	 = filter (\pc -> not.inQueueAndLTECount pc queue) moveablePnts
 	in
 		pathfind w (head queue) ((tail queue) ++ moveablePntsNotInQueue)
+-}
+
+
+-- Get the next best point in the path by seeing which adjacent point to start has the smallest count.
+nextPoint :: GameParams -> Point -> [(Point, Int)] -> Point
+nextPoint gp start queue | (distance gp start next) == 1 = fst next
+                         | otherwise = nextpoint gp start cntr (tail queue)
+       where next = head queue
+
+-- Returns the point the ant should move to
+getNextMove :: GameParams -> World -> Point -> Point -> Point
+getNextMove gp w o start dest = nextPoint gp start (reverse path)
+			where path = getPathHelper w [(dest,0)] start
+
+getPathHelper :: World -> [(Point, Int)] -> Point -> [(Point, Int)]
+getPathHelper w queue dest  | fst start == dest = start
+							| otherwise = head newQueue ++ getPathHelper w (tail newQueue) dest
+			 where  start    = head queue
+			        -- Nearby points that can be moved to (not obstacles)
+			        adjPnts  = getAdjacentPassablePoints w start 
+			        -- If there is an element in the queue with the same coordinate and an equal or lower counter, remove it from the list
+			 		newQueue = queue ++ filter (\p -> not $ inQueueAndLTECount' p queue) adjPnts
+
+inQueueAndLTECount :: (Point, Int) -> [(Point, Int)] -> Bool
+inQueueAndLTECount (pnt, counter) queue = length [pc' | pc' <- queue, pnt == fst pc', snd pc' <= counter] > 0
+
+getAdjacentPassablePoints :: World -> (Point, Int) -> [Point]
+getAdjacentPassablePoints w (pnt, counter) = 
+	let
+		newCounter	 = counter + 1
+		xPlus1		 = (((row pnt) + 1, (col pnt)), newCounter)
+		xMinus1		 = (((row pnt) - 1, (col pnt)), newCounter)
+		yPlus1		 = (((row pnt), (col pnt) + 1), newCounter)
+		yMinus1		 = (((row pnt), (col pnt) - 1), newCounter)
+		-- Adjacent points. TODO: need to mod points with size of map?
+		nearbyPnts   = [xPlus1, xMinus1, yPlus1, yMinus1]
+	in
+		-- Filter points that are not passable
+		filter (\p -> isDestinationPassable' w p) nearbyPnts
 		
 {-
 ALGORITHM:
